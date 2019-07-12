@@ -2,18 +2,26 @@ const Router = require('koa2-router');
 const Response = require('./../core/Response');
 
 const AppModule = require('core/modules/AppModule');
-const users = require('./../core/customCongfig/users.js');
+
+const Users = require('./../models/users.js');
 
 const router = new Router();
 
-const checkAuth = (ctx, next) => {
-  const correctUser = users.find(user => user.login == ctx.request.body.login);
+const checkAuth = async (ctx, next) => {
+  const { email='alex@mail.ru', password='11111' } = ctx.request.body;
+
+  const correctUser = await Users.findOne({
+    where: {
+      email: email
+    },
+    raw: true
+  });
 
   if (correctUser === undefined) return Response.error(ctx, 'User not Found');
-  else if (correctUser.password !== ctx.request.body.password) {
+  else if (correctUser.password !== password) {
     return Response.error(ctx, 'Wrong password');
   }
-
+  ctx.session.userId = correctUser.id;
   next();
 };
 
@@ -35,6 +43,10 @@ router.delete('/card/:id', ctx => {
 
 router.post('/user', checkAuth, ctx => {
   return AppModule.login(ctx);
+});
+
+router.get('/myCards', ctx => {
+  return AppModule.getCardByAuthUser(ctx);
 });
 
 module.exports = router;

@@ -1,24 +1,26 @@
 const Response = require('core/Response');
-const cards = require('../customCongfig/customConfig.js');
+const { Op } = require('sequelize');
+
+const Ideas = require('./../../models/ideas.js');
+const Users = require('./../../models/users.js');
+
+Users.hasMany(Ideas);
 
 class AppModule {
-  async ping(ctx) {
-    return Response.text(ctx, 'pong');
-  }
-
   async cards(ctx) {
-    const result = await ctx.db.query('select * from ideas');
-    ctx.body = result.rows;
+    const ideasCard = await Ideas.findAll();
+    ctx.body = ideasCard;
   }
 
   async createIdea(ctx) {
-    const { title, description, author } = ctx.request.body;
-    console.log(ctx.request.body);
-    const result = await ctx.db.query(
-      'insert into ideas (title, description,author) values ($1, $2,$3) RETURNING *',
-      [title, description, author]
+    const { title, description, userId = 4 } = ctx.request.body;
+    const newIdea = await Ideas.create(
+      { title, description, userId },
+      {
+        fields: ['title', 'description', 'userId']
+      }
     );
-    ctx.body = result.rows[0];
+    ctx.body = newIdea;
   }
 
   async getSingleIdea(ctx) {
@@ -30,16 +32,34 @@ class AppModule {
 
   async deleteCardById(ctx) {
     const indexOfIdea = ctx.request.params.id;
-    const indexOfDeletedCard = cards.ideasCard.findIndex(card => {
-      card.id === Number(indexOfIdea);
-    });
-    const deletedCard = cards.ideasCard.splice(indexOfDeletedCard, 1);
 
-    return Response.json(ctx, deletedCard);
+    const savedCardBeforeDeleted = await Ideas.findAll({
+      where: {
+        id: indexOfIdea
+      }
+    });
+    await Ideas.destroy({
+      where: {
+        id: indexOfIdea
+      }
+    });
+    return Response.json(ctx, savedCardBeforeDeleted);
   }
 
   async login(ctx) {
     return Response.success(ctx);
+  }
+
+  async getCardByAuthUser(ctx) {
+    const cardByUser = ctx.session;
+    console.log(cardByUser.userId);
+
+    const ideasByUserID = await Ideas.findAll({
+      where: {
+        user_id: cardByUser.userId
+      }
+    });
+    ctx.body = ideasByUserID;
   }
 }
 

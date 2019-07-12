@@ -1,13 +1,21 @@
 const Koa = require('koa');
 const cors = require('koa2-cors');
 const bodyParser = require('koa-bodyparser');
+const session = require('koa-session');
 
 const config = require('config');
 const mainRoutes = require('routes/main');
 
-const db = require('../lib/database');
+const database = require('../lib/database');
 
 const app = new Koa();
+
+app.keys = ['some secret hurr'];
+
+const CONFIG = {
+  key: 'usersess',
+  maxAge: 600000
+};
 
 app.init = async () => {
   app.use(
@@ -16,9 +24,11 @@ app.init = async () => {
     })
   );
 
+  app.use(session(CONFIG, app));
+
   app.use(bodyParser());
-  const connection = await db.getConnection();
-  app.context.db = connection;
+  await database.sync({ forse: false });
+  app.context.sequelize = database;
 
   // routes
   app.use(mainRoutes);
